@@ -1,7 +1,3 @@
-#
-#  phpserialize.py
-#  phpserialize
-#
 #  Copyright 2010 The phpserialize Authors. All Rights Reserved.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,23 +11,28 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-#
 
+"""PHP-compatible serialize and unserialize."""
 
 import cStringIO
 import types
 
 
+
 class PhpObject:
+  """Object used in place of a PHP native object."""
+
   def __init__(self, className, attributes):
     self.className = className
     self.attributes = attributes
+
 
   def __repr__(self):
     return str({
       'className': self.className,
       'attributes': self.attributes
     })
+
 
   def __eq__(self, other):
     return (self.className == other.className and
@@ -41,20 +42,25 @@ class PhpObject:
 # Serialize.
 
 def serialize(obj):
+  """Serialize a Python object to a string."""
   output = cStringIO.StringIO()
   __serialize(obj, output)
   result = output.getvalue()
   output.close()
   return result
 
+
 def __writeDict(obj, output):
+  """Writes a dictionary to the output."""
   output.write("%i:{" % len(obj))
   for key in sorted(obj.keys()):
     __serialize(key, output)
     __serialize(obj[key], output)
   output.write("}")
 
+
 def __serialize(obj, output):
+  """Serializes an object to the output."""
   objType = type(obj)
 
   if objType is types.NoneType:
@@ -94,63 +100,68 @@ def __serialize(obj, output):
 # Unserialize.
 
 
-def unserialize(str):
-  value, index = __unserialize(str, 0)
-  assert(index == len(str))
+def unserialize(string):
+  """Unserializes a string in to a Python object."""
+  value, index = __unserialize(string, 0)
+  assert(index == len(string))
   return value
 
 
-def __getLength(str, index):
-  endIndex = str.find(":", index)
-  return int(str[index:endIndex]), endIndex + 2
+def __getLength(string, index):
+  """Reads a length at the given string index."""
+  endIndex = string.find(":", index)
+  return int(string[index:endIndex]), endIndex + 2
 
 
-def __getString(str, index):
-  # TODO: Support UTF-8.  
-  length, index = __getLength(str, index)
-  return str[index:index + length], index + length + 2
+def __getString(string, index):
+  """Reads the string at the given index."""
+  # TODO: Support UTF-8.
+  length, index = __getLength(string, index)
+  return string[index:index + length], index + length + 2
 
 
-def __getDict(str, index):
+def __getDict(string, index):
+  """Reads a dict at the given index."""
   result = {}
   isList = True
-  length, index = __getLength(str, index)
-  for i in xrange(length):
-    key, index = __unserialize(str, index)
-    value, index = __unserialize(str, index)
+  length, index = __getLength(string, index)
+  for _ in xrange(length):
+    key, index = __unserialize(string, index)
+    value, index = __unserialize(string, index)
     result[key] = value
     isList = isList and type(key) == type(1) and key >= 0
   return result, index + 1, isList
 
 
-def __unserialize(str, index):
-  type = str[index]
+def __unserialize(string, index):
+  """Unserializes the next object in the serialized string."""
+  nextType = string[index]
 
-  if type == "N":
+  if nextType == "N":
     # Null.
     return None, index + 2
 
-  if type == "b":
-    # Boolean.    
-    return str[index + 2] == "1", index + 4
+  if nextType == "b":
+    # Boolean.
+    return string[index + 2] == "1", index + 4
 
-  if type == "d":
+  if nextType == "d":
     # Float.
-    endIndex = str.find(";", index)
-    return float(str[index + 2:endIndex]), endIndex + 1    
+    endIndex = string.find(";", index)
+    return float(string[index + 2:endIndex]), endIndex + 1
 
-  if type == "i":
+  if nextType == "i":
     # Integer.
-    endIndex = str.find(";", index)
-    return int(str[index + 2:endIndex]), endIndex + 1
+    endIndex = string.find(";", index)
+    return int(string[index + 2:endIndex]), endIndex + 1
 
-  if type == "s":
+  if nextType == "s":
     # String.
-    return __getString(str, index + 2)
+    return __getString(string, index + 2)
 
-  if type == "a":
+  if nextType == "a":
     # Array / dictionary.
-    result, index, isList = __getDict(str, index + 2)
+    result, index, isList = __getDict(string, index + 2)
 
     if isList:
       resultList = []
@@ -158,17 +169,17 @@ def __unserialize(str, index):
         pos = len(resultList)
         while key > pos:
           resultList.append(None)
-          pos = pos + 1
+          pos += 1
         resultList.append(result[key])
       return resultList, index
 
     return result, index
 
-  if type == "O":
+  if nextType == "O":
     # Object.
-    className, index = __getString(str, index + 2)
-    attributes, index, _ = __getDict(str, index)
+    className, index = __getString(string, index + 2)
+    attributes, index, _ = __getDict(string, index)
     return PhpObject(className, attributes), index
 
   # If we get this far we failed.
-  raise ValueError("Unsupported value: " + v[self.__c])
+  raise ValueError("Unsupported value type: %s" % nextType)
