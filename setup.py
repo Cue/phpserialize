@@ -14,7 +14,7 @@ setup(name='phpserialize',
       license='Apache',
       author='Greplin, Inc.',
       author_email='opensource@greplin.com',
-      url='http://www.github.com/Greplin/phpserialize',
+      url='https://www.github.com/Cue/phpserialize',
       py_modules = ['phpserialize'],
       test_suite = 'tests',
 )
